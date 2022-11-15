@@ -1,0 +1,40 @@
+// LOCAL SETTING specifically for the directory python
+{
+	"[python]": {
+		"editor.tabSize": 4,
+		"editor.insertSpaces": true,
+		"editor.formatOnSave": true,
+		"editor.detectIndentation": false,
+		"editor.codeActionsOnSave": {
+			"source.organizeImports": true
+		}
+	},
+	"python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python3.10",
+	"python.autoComplete.extraPaths": [
+		"${workspaceFolder}/.venv/lib"
+	],
+	"python.linting.enabled": true,
+	"python.analysis.completeFunctionParens": true,
+	"python.languageServer": "Pylance",
+	"python.analysis.typeCheckingMode": "basic",
+	"python.linting.lintOnSave": true,
+	"python.linting.mypyEnabled": true,
+	"python.linting.mypyArgs": [
+		"--ignore-missing-imports",
+		"--follow-imports=silent",
+		"--show-column-numbers",
+		"--check-untyped-defs"
+	],
+	"python.linting.flake8Args": [
+		"--ignore=E501"
+	],
+	"python.linting.pylintEnabled": false,
+	"python.linting.ignorePatterns": [
+		"tests/**/*.py"
+	],
+	"python.formatting.blackPath": "${workspaceFolder}/.venv/bin/black",
+	"python.formatting.provider": "black",
+	"python.formatting.blackArgs": [
+		"--line-length=120",
+	],
+}
