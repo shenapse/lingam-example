@@ -6,3 +6,4 @@
 /graph/*
 !/graph/*.png
 /scr/LiM.py
+/**/.mypy_cache
