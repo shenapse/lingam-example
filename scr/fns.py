@@ -1,4 +1,6 @@
+import inspect
 import pathlib
+import time
 from typing import Any, Final, Optional
 
 import lingam
@@ -7,6 +9,20 @@ import pandas as pd
 from graphviz import Digraph
 from lingam.utils import make_dot
 from nptyping import NDArray
+
+
+def show_caller():
+    chain: list[str] = [s.function for s in inspect.stack()[1:-1]]
+    caller: str = " -> ".join(chain)
+    print(f"running: {caller}")
+
+
+def make_dot_from_dag(dag: dict) -> Digraph:
+    graph = Digraph(format="png")
+    graph.attr("node", shape="circle")
+    for from_, to_ in zip(dag["from"], dag["to"]):
+        graph.edge(str(from_), str(to_))
+    return graph
 
 
 def save_dot(dot: Digraph, name: str, dir: pathlib.Path | None = None, format: str = "png") -> str:
@@ -86,7 +102,7 @@ def get_adjacency_matrix(
     # fill cells in matrix
     for from_, to_ in zip(cdc["from"], cdc["to"]):
         path = result.get_paths(from_, to_)
-        if path["probability"][0] < min_prob or (effect := path["effect"][0]) < min_causal_effect:
+        if path["probability"][0] < min_prob or abs((effect := path["effect"][0])) < min_causal_effect:
             continue
         mat[to_, from_] = effect
     return mat
@@ -134,34 +150,58 @@ def get_amat() -> NDArray:
     return define_adjacency_mat(mat)
 
 
+def get_amat_from_model(model):
+    cands: list[str] = ["_adjacency_matrix", "adjacency_matrix_"]
+    for key, value in model.__dict__.items():
+        for cand in cands:
+            if key == cand:
+                return value
+
+
 def run_model(
-    prior_mat: NDArray,
+    model,
     data: pd.DataFrame,
     n_boot: int,
     name_graph: str,
     dir_graph: pathlib.Path | None = None,
     min_prob: float = 0.1,
     min_causal_effect: float = 0.1,
+    n_dags: int = 3,
 ):
-    model = lingam.BottomUpParceLiNGAM(prior_knowledge=prior_mat)
-
+    # show caller function
+    show_caller()
     # fit
     model.fit(data)
-    print(f"causal order = {model.causal_order_}")
+    # print causal order if it is available
+    if "causal_order_" in model.__dict__.keys():
+        print(f"causal order = {model.causal_order_}")
+    # print adjacency matrix if it is available
+    amat = get_amat_from_model(model)
+    print("adjacency matrix\n", amat)
     # independence p-values
     pvs_mat = model.get_error_independence_p_values(data)
-    print(pvs_mat)
-    print(get_suspected_dependence(pvs_mat))
-
+    print("independence p-values\n", pvs_mat)
+    p_thr = 0.1
+    print(f"suspected dependence p<{p_thr}\n", get_suspected_dependence(pvs_mat, p_value_thr=p_thr))
     # when model misses a prior knowledge, bootstrap takes a lot of time
     # and it is less likely that the estimation provides fruitful information
-    # start = time.perf_counter()
+    start = time.perf_counter()
     result = model.bootstrap(data, n_sampling=n_boot)
-    # process_time = time.perf_counter() - start
-    # print(f"bootstrap takes {process_time} sec.")
+    process_time = time.perf_counter() - start
+    print(f"bootstrap takes {process_time} sec.")
     # show effect table
-    df = get_causal_paths_df(result, min_prob=min_prob, min_causal_effect=min_causal_effect)
-    print(df)
+    # df = get_causal_paths_df(result, min_prob=min_prob, min_causal_effect=min_causal_effect)
+    # print("causal_paths\n", df)
     # save estimated graph as png image
-    dot_est = make_dot(get_adjacency_matrix(result, min_prob=min_prob, min_causal_effect=min_causal_effect))
+    # dot_est = make_dot(get_adjacency_matrix(result, min_prob=min_prob, min_causal_effect=min_causal_effect))
+    dot_est = make_dot(amat)
     save_dot(dot_est, name=name_graph, dir=dir_graph)
+
+    # save detected dags
+    dags = result.get_directed_acyclic_graph_counts(n_dags=n_dags, min_causal_effect=min_causal_effect)
+    for i, dag in enumerate(dags["dag"]):
+        freq = dags["count"][i] / n_boot
+        if freq < min_prob:
+            continue
+        dot = make_dot_from_dag(dag)
+        save_dot(dot, str(f"{name_graph}_dag{i}_freq={round(freq,3)}"))
