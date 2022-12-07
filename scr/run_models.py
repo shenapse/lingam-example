@@ -15,8 +15,7 @@ def bup_with_sem_data(n_boot: int):
     # define true effect to estimate
     effect_true: NDArray = get_amat()
     dot_true = make_dot(effect_true)
-    save_dot(dot_true, name="bup_true")
-
+    save_dot(dot_true, name="effect_true")
     # generate sample data from the adjacency matrix given above
     sem_types: Final[list[str]] = ["gauss", "exp", "gumbel"]
     for sem_type in sem_types:
@@ -147,4 +146,4 @@ if __name__ == "__main__":
     # rcd_with_sem_data(n_boot)
     # rcd_with_unif_data(n_boot)
     # rcd_with_gamma_unif_data(n_boot)
-    rcd_with_normal_unif_data(n_boot)
+    # rcd_with_normal_unif_data(n_boot)
